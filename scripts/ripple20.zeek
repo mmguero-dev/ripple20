@@ -134,6 +134,18 @@ event Ripple20::worker_to_manager(table_to_update: string, key: string, c:connec
         }
     }
 
+# Send a worker's observation to the manager. Zeek 7.1 added Cluster::publish(), which works
+#   with any cluster backend (Broker, ZeroMQ, etc.); Broker::publish() only works when Broker is
+#   the cluster backend, and with any other backend it does nothing but log a reporter warning.
+function publish_to_manager(table_to_update: string, key: string, c: connection, debug: string)
+    {
+@if ( Version::number >= 70100 )
+    Cluster::publish(Cluster::manager_topic, Ripple20::worker_to_manager, table_to_update, key, c, debug);
+@else
+    Broker::publish(Cluster::manager_topic, Ripple20::worker_to_manager, table_to_update, key, c, debug);
+@endif
+    }
+
 @if ( Version::number >= 40100 )
 event icmp_sent(c: connection, icmp: icmp_info)
 @else
@@ -146,8 +158,7 @@ event icmp_sent(c: connection, icmp: icmp_conn)
         {
         # print(cat(icmp));
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_treck_165_ping_from", cat(c$id$orig_h,",",c$id$resp_h), c, cat(icmp));
+            publish_to_manager("seen_treck_165_ping_from", cat(c$id$orig_h,",",c$id$resp_h), c, cat(icmp));
         @else
             event Ripple20::worker_to_manager("seen_treck_165_ping_from", cat(c$id$orig_h,",",c$id$resp_h), c, cat(icmp));
         @endif
@@ -156,8 +167,7 @@ event icmp_sent(c: connection, icmp: icmp_conn)
     if (icmp$itype == 166)
         {
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_treck_166_pong_from", cat(c$id$resp_h,",",c$id$orig_h), c, cat(icmp));
+            publish_to_manager("seen_treck_166_pong_from", cat(c$id$resp_h,",",c$id$orig_h), c, cat(icmp));
         @else
             event Ripple20::worker_to_manager("seen_treck_166_pong_from", cat(c$id$resp_h,",",c$id$orig_h), c, cat(icmp));
         @endif
@@ -199,8 +209,7 @@ event connection_SYN_packet(c: connection, pkt: SYN_packet)
     if (current_packet_header$ip$p == 4)
         {
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_ip_in_ip_outer_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
+            publish_to_manager("seen_ip_in_ip_outer_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @else
             event Ripple20::worker_to_manager("seen_ip_in_ip_outer_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @endif
@@ -224,8 +233,7 @@ event connection_SYN_packet(c: connection, pkt: SYN_packet)
     if (current_packet_header$ip$p == 0)
         {
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_ip_in_ip_inner_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
+            publish_to_manager("seen_ip_in_ip_inner_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @else
             event Ripple20::worker_to_manager("seen_ip_in_ip_inner_packet_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @endif
@@ -250,8 +258,7 @@ event icmp_echo_reply(c: connection, icmp: icmp_conn, id: count, seq: count, pay
     if (current_packet_header$ip$ttl == 255)
         {
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_treck_255_ICMP_TTL_from", cat(c$id$orig_h), c, cat("current_packet_header=",cat(current_packet_header),"icmp=",cat(icmp)));
+            publish_to_manager("seen_treck_255_ICMP_TTL_from", cat(c$id$orig_h), c, cat("current_packet_header=",cat(current_packet_header),"icmp=",cat(icmp)));
         @else
             event Ripple20::worker_to_manager("seen_treck_255_ICMP_TTL_from", cat(c$id$orig_h), c, cat(cat(current_packet_header, icmp)));
         @endif
@@ -272,8 +279,7 @@ event connection_established(c: connection)
             {
             # print(cat(c$id$resp_h));
             @if (Cluster::is_enabled())
-                Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                                "seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
+                publish_to_manager("seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
             @else
                 event Ripple20::worker_to_manager("seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
             @endif
@@ -302,8 +308,7 @@ event connection_rejected(c: connection)
     if (current_packet_header$ip$ttl == 64)
         {
         @if (Cluster::is_enabled())
-            Broker::publish(Cluster::manager_topic,  Ripple20::worker_to_manager,
-                            "seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
+            publish_to_manager("seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @else
             event Ripple20::worker_to_manager("seen_treck_64_TCP_TTL_from", cat(c$id$resp_h), c, cat(current_packet_header));
         @endif
